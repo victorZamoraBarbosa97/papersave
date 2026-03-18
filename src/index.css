@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .letter-paper {
+    width: 612px;
+    height: 792px;
+    background-color: #ffffff;
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+    background-size: 20px 20px; /* Dotted grid pattern */
+  }
+
+  .safety-margin {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 142px; /* Represents 5cm at 72 PPI */
+    background-color: rgba(241, 245, 249, 0.8);
+    border-left: 2px dashed #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    pointer-events: none;
+  }
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0;
+  }
+  body {
+    background: none;
+  }
+  .letter-paper {
+    width: 8.5in;
+    height: 11in;
+    box-shadow: none;
+    background-image: none; /* Opcional: quitar la cuadrícula al imprimir */
+  }
+  /* Ocultar elementos de UI al imprimir */
+  header,
+  aside,
+  .safety-margin,
+  [data-purpose="status-toast"] {
+    display: none !important;
+  }
+  .main-canvas-area {
+    background: none;
+    padding: 0;
+    min-height: auto;
+    display: block;
+  }
+}
