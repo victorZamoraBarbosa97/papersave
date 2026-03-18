@@ -40,7 +40,10 @@ export const CropModal: React.FC<CropModalProps> = ({
     try {
       setIsRemovingBg(true);
       // La IA procesa la imagen y devuelve un Blob PNG con transparencia
-      const blob = await removeBackground(currentImageUrl);
+      const blob = await removeBackground(currentImageUrl, {
+        model: "isnet_fp16",
+        publicPath: `${window.location.origin}/`, // Volvemos a la raíz
+      });
       const newUrl = URL.createObjectURL(blob);
       setCurrentImageUrl(newUrl);
     } catch (error) {

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
+    "// @imgly/background-removal-data": "Se descarga desde la URL directa porque los creadores dejaron de publicar los modelos en NPM a partir de la v1.4.5",
+    "@imgly/background-removal-data": "https://staticimgly.com/@imgly/background-removal-data/1.7.0/package.tgz",
     "@tailwindcss/vite": "^4.2.1",
     "face-api.js": "^0.22.2",
     "html-to-image": "^1.11.11",

@@ -9,6 +9,7 @@ import {
 } from "../utils/storage";
 import { loadFaceApiModels } from "../utils/faceDetection";
 import type { PaperState, PhotoSlot, UploadedImage } from "../types";
+import { preload } from "@imgly/background-removal"; // precargar modelos para eliminar el background
 
 export const useAppInitialization = () => {
   const setUploadedImages = usePaperStore((state) => state.setUploadedImages);
@@ -16,6 +17,13 @@ export const useAppInitialization = () => {
   useEffect(() => {
     loadFaceApiModels();
     loadImagesFromDB().then((images) => setUploadedImages(images));
+
+    // Precargar silenciosamente el modelo más preciso para quitar fondos.
+    // Así, cuando el usuario le dé clic, el modelo ya estará en la caché.
+    preload({
+      model: "isnet_fp16",
+      publicPath: `${window.location.origin}/`, // Volvemos a la raíz
+    }).catch((err) => console.warn("Failed to preload bg-removal models", err));
 
     const rehydrateSlots = async () => {
       const currentSlots = usePaperStore.getState().slots;
