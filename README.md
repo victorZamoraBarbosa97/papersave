@@ -15,7 +15,7 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 - 🤖 **Eliminación de Fondo con IA (Offline):** Utiliza el modelo `isnet_fp16` para extraer sujetos con precisión milimétrica (incluso cabello). No se envían fotos a ningún servidor.
 - 👱‍♂️ **Detección Facial Automática:** Usa `face-api.js` dentro de un Web Worker dedicado para detectar rostros y sugerir el recorte perfecto.
 - ⚡ **WebAssembly Multihilo (Modo Turbo):** Aprovecha `SharedArrayBuffer` y múltiples núcleos del procesador para recortes y procesamientos casi instantáneos.
-- 📱 **Aplicación Web Progresiva (PWA):** Instalable en escritorio. Los modelos de IA pesados (~75MB) se guardan en la caché del Service Worker para funcionar 100% sin internet en visitas posteriores.
+- 📱 **Aplicación Web Progresiva (PWA):** Instalable en escritorio y en el celular (con adaptación visual para pantallas pequeñas). Los modelos de IA pesados (~75MB) se guardan en la caché del Service Worker para funcionar 100% sin internet en visitas posteriores.
 - 🗄️ **Almacenamiento Local (IndexedDB):** Tus fotos y el estado de la hoja se guardan en la base de datos de tu propio navegador y sobreviven a cierres y reinicios. Se solicita almacenamiento persistente para que el navegador no lo borre, y la hoja nunca muestra imágenes rotas si una foto falta.
 - ⏪ **Historial de Acciones:** Funcionalidad de Deshacer/Rehacer (Undo/Redo) construida con Zustand y Zundo.
 - 🖨️ **Exportación PDF y Soporte de Impresión:** Generación de hojas listas para imprimir generadas completamente en el cliente.
@@ -56,19 +56,28 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   ├── 📁 models
 │   │   ├── 📄 tiny_face_detector_model-shard1
 │   │   └── ⚙️ tiny_face_detector_model-weights_manifest.json
+│   ├── 🖼️ apple-touch-icon.png
 │   ├── 🖼️ favicon.svg
-│   └── 🖼️ icons.svg
+│   ├── 🖼️ icons.svg
+│   ├── 🖼️ pwa-192x192.png
+│   ├── 🖼️ pwa-512x512.png
+│   └── 🖼️ pwa-maskable-512x512.png
 ├── 📁 src
 │   ├── 📁 components
 │   │   ├── 📄 CropModal.tsx
 │   │   ├── 📄 DragDropOverlay.tsx
+│   │   ├── 📄 DuplicateDialog.tsx
 │   │   ├── 📄 Header.tsx
+│   │   ├── 📄 Icon.tsx
 │   │   ├── 📄 MarqueeOverlay.tsx
+│   │   ├── 📄 Modal.tsx
 │   │   ├── 📄 PaperSheet.tsx
 │   │   ├── 📄 PhotoSlot.tsx
 │   │   ├── 📄 PrintPrompt.tsx
 │   │   ├── 📄 ProcessingOverlay.tsx
-│   │   └── 📄 Sidebar.tsx
+│   │   ├── 📄 Sidebar.tsx
+│   │   ├── 📄 SlotContextMenu.tsx
+│   │   └── 📄 Toast.tsx
 │   ├── 📁 config
 │   │   └── 📄 constants.ts
 │   ├── 📁 hooks
@@ -77,13 +86,16 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   │   ├── 📄 useGlobalDragAndDrop.ts
 │   │   ├── 📄 useGlobalShortcuts.ts
 │   │   ├── 📄 useMarqueeSelection.ts
+│   │   ├── 📄 usePaperScale.ts
 │   │   ├── 📄 usePrintPrompt.ts
 │   │   ├── 📄 useSidebarActions.ts
 │   │   └── 📄 useSidebarUpload.ts
 │   ├── 📁 services
 │   │   └── 📄 imageProcessor.ts
 │   ├── 📁 store
-│   │   └── 📄 usePaperStore.ts
+│   │   ├── 📄 usePaperStore.test.ts
+│   │   ├── 📄 usePaperStore.ts
+│   │   └── 📄 useToastStore.ts
 │   ├── 📁 types
 │   │   └── 📄 index.ts
 │   ├── 📁 utils
@@ -109,7 +121,8 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 ├── ⚙️ tsconfig.app.json
 ├── ⚙️ tsconfig.json
 ├── ⚙️ tsconfig.node.json
-└── 📄 vite.config.ts
+├── 📄 vite.config.ts
+└── 📄 vitest.config.ts
 ```
 
 ---
@@ -161,6 +174,14 @@ npm run dev
 
 El servidor local aplicará automáticamente los encabezados de aislamiento para simular el modo turbo de WebAssembly.
 
+### Pruebas
+
+```bash
+npm test
+```
+
+Pruebas unitarias (Vitest) del store: colocar, mover e intercambiar fotos, marcar como impreso, historial de deshacer y migración del estado guardado.
+
 ### Compilación para Producción
 
 ```bash
@@ -170,7 +191,7 @@ npm run build
 Durante este paso, Vite:
 
 1. Empaquetará tu código react en _chunks_ optimizados (separando la IA, la manipulación de PDF y React).
-2. Copiará automáticamente más de 50MB de modelos de IA a la carpeta `dist/`.
+2. Copiará a `dist/` solo lo necesario para la IA sin conexión (el modelo `isnet_fp16` y el motor ONNX, ~150MB; el paquete original trae otros modelos que no se usan).
 3. Generará el Service Worker pre-configurado para funcionamiento offline.
 
 Para previsualizar la compilación:
@@ -196,6 +217,7 @@ _Si actualizas la aplicación tras un despliegue y experimentas errores de carga
 
 ## ⚠️ Limitaciones Conocidas
 
+- **Móvil:** la interfaz se adapta (panel lateral como cajón, hoja reducida al ancho de pantalla, botones compactos), pero es una adaptación visual: arrastrar fotos y el menú de clic derecho están pensados para ratón, así que en pantalla táctil se usa el doble toque para colocar una foto.
 - `face-api.js` ya no recibe mantenimiento y arrastra dependencias antiguas de TensorFlow.js (`npm audit` reporta avisos de `node-fetch`, que es código de Node y no se ejecuta en el navegador). Es candidata a reemplazarse.
 - La hoja es de un solo formato (Carta, cuadrícula de 6×8 fotos de 2.5 × 3 cm).
 - El navegador no informa si el diálogo de impresión terminó en impresión o en cancelación, por eso marcar como impreso requiere confirmación.

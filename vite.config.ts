@@ -5,6 +5,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { BG_REMOVAL_MODEL } from "./src/config/constants";
 
 const require = createRequire(import.meta.url);
 
@@ -20,7 +21,53 @@ function getPackagePath(packageName: string) {
   }
 }
 
+// Copia a `destDir` solo lo que necesita la eliminación de fondo offline:
+//  - del paquete de datos de imgly: resources.json (el manifiesto) y únicamente
+//    los chunks del modelo en uso y de los binarios de ONNX (el paquete trae 3
+//    modelos, ~300 MB, y la app solo usa uno);
+//  - de onnxruntime-web: solo los .wasm/.mjs del motor (no sus ~40 bundles .js).
+function copyBackgroundRemovalAssets(destDir: string) {
+  const dataDist = path.join(
+    getPackagePath("@imgly/background-removal-data"),
+    "dist",
+  );
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(dataDist, "resources.json"), "utf-8"),
+  ) as Record<string, { chunks: { name: string }[] }>;
+
+  const wanted = Object.keys(manifest).filter(
+    (key) =>
+      key.startsWith("/onnxruntime-web/") ||
+      key === `/models/${BG_REMOVAL_MODEL}`,
+  );
+  if (!wanted.some((key) => key === `/models/${BG_REMOVAL_MODEL}`)) {
+    throw new Error(
+      `El modelo "${BG_REMOVAL_MODEL}" no está en resources.json de @imgly/background-removal-data`,
+    );
+  }
+
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.copyFileSync(
+    path.join(dataDist, "resources.json"),
+    path.join(destDir, "resources.json"),
+  );
+  for (const key of wanted) {
+    for (const { name } of manifest[key].chunks) {
+      fs.copyFileSync(path.join(dataDist, name), path.join(destDir, name));
+    }
+  }
+
+  const onnxDist = path.join(getPackagePath("onnxruntime-web"), "dist");
+  for (const file of fs.readdirSync(onnxDist)) {
+    if (/^ort-wasm-simd-threaded(\.jsep)?\.(wasm|mjs)$/.test(file)) {
+      fs.copyFileSync(path.join(onnxDist, file), path.join(destDir, file));
+    }
+  }
+}
+
 // https://vite.dev/config/
+let outDir = "dist";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -28,18 +75,17 @@ export default defineConfig({
     {
       name: "imgly-offline-magic",
       enforce: "pre", // Ejecutarse ANTES que los bloqueos de Vite
+      configResolved(config) {
+        outDir = path.resolve(config.root, config.build.outDir);
+      },
       closeBundle() {
         try {
-          // Copiamos los archivos automáticamente a la carpeta de producción (dist) al terminar de compilar
-          const pkgDir = getPackagePath("@imgly/background-removal-data");
-          const destDir = path.join(process.cwd(), "dist");
-          fs.cpSync(path.join(pkgDir, "dist"), destDir, { recursive: true });
-
-          // También copiamos los archivos del motor neuronal (ONNX) para producción
-          const onnxDir = getPackagePath("onnxruntime-web");
-          fs.cpSync(path.join(onnxDir, "dist"), destDir, { recursive: true });
+          // Copia los archivos de IA a la carpeta de producción al terminar de compilar
+          copyBackgroundRemovalAssets(outDir);
         } catch (err) {
           console.error("[AI-Magic] Error en closeBundle:", err);
+          // Sin estos archivos el despliegue no tendría eliminación de fondo.
+          process.exitCode = 1;
         }
       },
       configureServer(server) {
@@ -101,7 +147,7 @@ export default defineConfig({
     },
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       workbox: {
         maximumFileSizeToCacheInBytes: 50 * 1024 * 1024, // 50 MB (Permite guardar los modelos pesados de IA en la caché)
         navigateFallbackDenylist: [
@@ -118,13 +164,18 @@ export default defineConfig({
         theme_color: "#ffffff",
         background_color: "#f8fafc",
         display: "standalone",
+        // PNG 192/512 (requeridos para instalar en Android/Chrome) + versión
+        // "maskable" a sangre; "any" y "maskable" van separados a propósito.
         icons: [
+          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
           {
-            src: "favicon.svg",
-            sizes: "192x192 512x512",
-            type: "image/svg+xml",
-            purpose: "any maskable",
+            src: "pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
+          { src: "favicon.svg", sizes: "any", type: "image/svg+xml" },
         ],
       },
     }),
