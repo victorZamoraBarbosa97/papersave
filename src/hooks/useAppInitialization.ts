@@ -2,11 +2,8 @@
 
 import { useEffect } from "react";
 import { usePaperStore, trackedUrls } from "../store/usePaperStore";
-import {
-  loadImagesFromDB,
-  getBlobFromDB,
-  cleanupOrphanedImages,
-} from "../utils/storage";
+import { loadImagesFromDB, cleanupOrphanedImages } from "../utils/storage";
+import { rehydrateSlots } from "../utils/rehydrate";
 import { loadFaceApiModels } from "../utils/faceDetection";
 import type { PaperState, PhotoSlot, UploadedImage } from "../types";
 import { preload } from "@imgly/background-removal"; // precargar modelos para eliminar el background
@@ -16,6 +13,11 @@ export const useAppInitialization = () => {
 
   useEffect(() => {
     loadFaceApiModels();
+
+    // Pide al navegador que no borre IndexedDB si falta espacio: la hoja debe
+    // sobrevivir días y reinicios. Una PWA instalada normalmente lo recibe.
+    navigator.storage?.persist?.().catch(() => {});
+
     loadImagesFromDB().then((images) => setUploadedImages(images));
 
     // Precargar silenciosamente el modelo más preciso para quitar fondos.
@@ -25,28 +27,6 @@ export const useAppInitialization = () => {
       publicPath: `${window.location.origin}/`, // Volvemos a la raíz
     }).catch((err) => console.warn("Failed to preload bg-removal models", err));
 
-    const rehydrateSlots = async () => {
-      const currentSlots = usePaperStore.getState().slots;
-      for (const slot of currentSlots) {
-        if (slot.isOccupied) {
-          let newImageData = slot.imageData;
-          let newOriginalData = slot.originalImageData;
-
-          if (slot.imageId) {
-            const blob = await getBlobFromDB(slot.imageId);
-            if (blob) newImageData = URL.createObjectURL(blob);
-          }
-          if (slot.originalImageId) {
-            const originalBlob = await getBlobFromDB(slot.originalImageId);
-            if (originalBlob)
-              newOriginalData = URL.createObjectURL(originalBlob);
-          }
-          usePaperStore
-            .getState()
-            .updateSlotUrls(slot.id, newImageData, newOriginalData);
-        }
-      }
-    };
     rehydrateSlots();
   }, [setUploadedImages]);
 

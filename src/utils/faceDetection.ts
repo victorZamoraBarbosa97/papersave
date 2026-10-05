@@ -12,6 +12,15 @@ const pendingJobs = new Map<
   { resolve: (data: FaceBox[]) => void; reject: (err: Error) => void }
 >();
 
+// Si el worker no responde (modelo que no carga, error interno) no se debe
+// dejar la subida colgada: el job falla y se usa la foto sin recorte automático.
+const DETECTION_TIMEOUT_MS = 30_000;
+
+const failPendingJobs = (reason: string) => {
+  pendingJobs.forEach((job) => job.reject(new Error(reason)));
+  pendingJobs.clear();
+};
+
 const getWorker = () => {
   if (!worker) {
     // Instancia el Worker compatible con Vite y ESModules
@@ -29,6 +38,12 @@ const getWorker = () => {
         else job.reject(new Error(error));
         pendingJobs.delete(id);
       }
+    };
+    worker.onerror = (e) => {
+      console.error("Face detection worker error:", e.message);
+      failPendingJobs("Falló el worker de detección facial");
+      worker?.terminate();
+      worker = null; // la próxima foto crea un worker nuevo
     };
   }
   return worker;
@@ -56,7 +71,20 @@ export const processImageWithFaceDetection = async (
 
     // Envía la petición de procesamiento al hilo en segundo plano (Web Worker)
     const detections = await new Promise<FaceBox[]>((resolve, reject) => {
-      pendingJobs.set(jobId, { resolve, reject });
+      const timer = setTimeout(() => {
+        pendingJobs.delete(jobId);
+        reject(new Error("Tiempo de espera agotado en la detección facial"));
+      }, DETECTION_TIMEOUT_MS);
+      pendingJobs.set(jobId, {
+        resolve: (data) => {
+          clearTimeout(timer);
+          resolve(data);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      });
       w.postMessage({ id: jobId, file });
     });
 

@@ -32,7 +32,7 @@ export interface PaperState {
   setUploadedImages: (images: UploadedImage[]) => void;
   removeUploadedImage: (id: string) => void;
   updateUploadedImage: (id: string, image: UploadedImage) => void;
-  addImageAndFillSlot: (image: UploadedImage) => void;
+  addUploadedImage: (image: UploadedImage) => void;
   occupySlot: (
     id: number,
     data: string,
@@ -43,11 +43,6 @@ export interface PaperState {
   ) => void;
   duplicateSlot: (id: number | number[], count?: number) => void;
   toggleSlotPrinted: (id: number | number[]) => void;
-  updateSlotUrls: (
-    id: number,
-    imageData?: string,
-    originalImageData?: string,
-  ) => void;
   selectedSlotIds: number[];
   toggleSlotSelection: (id: number) => void;
   clearSelection: () => void;
@@ -69,6 +64,10 @@ export interface PhotoSlotProps {
   onSelect?: (id: number, e?: React.MouseEvent) => void;
   selectionCount?: number;
   isExporting?: boolean;
+  // Se suelta una foto de la galería sobre este espacio
+  onDropGalleryImage?: (slotId: number, imageId: string) => void;
+  // Se suelta la foto de otro espacio sobre este (mover o intercambiar)
+  onMoveImage?: (fromSlotId: number, toSlotId: number) => void;
 }
 
 export interface CropModalProps {

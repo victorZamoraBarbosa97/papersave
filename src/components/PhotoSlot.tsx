@@ -1,6 +1,11 @@
 import React, { useState, useEffect, type DragEvent } from "react";
 import type { PhotoSlotProps } from "../types";
-import { PASSPORT_WIDTH_CM, PASSPORT_HEIGHT_CM } from "../config/constants";
+import {
+  PASSPORT_WIDTH_CM,
+  PASSPORT_HEIGHT_CM,
+  GALLERY_DRAG_MIME,
+  SLOT_DRAG_MIME,
+} from "../config/constants";
 
 export const PhotoSlot = React.memo<PhotoSlotProps>(
   ({
@@ -17,6 +22,8 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
     onSelect,
     selectionCount,
     isExporting,
+    onDropGalleryImage,
+    onMoveImage,
     className = "",
   }) => {
     const [showClearButton, setShowClearButton] = useState(false);
@@ -62,8 +69,33 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
       }
     };
 
+    // Solo se puede arrastrar un espacio con foto, no impreso y sin popups abiertos.
+    const canDrag =
+      !!imageSrc &&
+      !isPrinted &&
+      !isExporting &&
+      !showDuplicateModal &&
+      !contextMenu;
+
+    const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+      if (!canDrag) {
+        e.preventDefault();
+        return;
+      }
+      e.dataTransfer.setData(SLOT_DRAG_MIME, String(id));
+      e.dataTransfer.effectAllowed = "move";
+    };
+
     const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      // Resalta el espacio solo si acepta el arrastre (no si está bloqueado).
+      const { types } = e.dataTransfer;
+      if (
+        (types.includes(GALLERY_DRAG_MIME) || types.includes(SLOT_DRAG_MIME)) &&
+        !isPrinted
+      ) {
+        setIsDragOver(true);
+      }
     };
 
     const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
@@ -73,6 +105,11 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
 
     const handleDrop = (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      setIsDragOver(false);
+      const imageId = e.dataTransfer.getData(GALLERY_DRAG_MIME);
+      if (imageId) onDropGalleryImage?.(id, imageId);
+      const fromSlotId = e.dataTransfer.getData(SLOT_DRAG_MIME);
+      if (fromSlotId) onMoveImage?.(parseInt(fromSlotId, 10), id);
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -107,6 +144,8 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onContextMenu={handleContextMenu}
+        draggable={canDrag}
+        onDragStart={handleDragStart}
       >
         {/* Overlay de selección (se dibuja por encima de la imagen) */}
         {isSelected && !isExporting && (
@@ -145,6 +184,7 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
 
         {contextMenu && !isExporting && (
           <div
+            data-modal-open
             className="fixed z-50 bg-white border border-slate-200 shadow-xl rounded-md py-1 min-w-35 flex flex-col print:hidden"
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
@@ -285,6 +325,7 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
               {!imageError ? (
                 <img
                   alt="ID Photo"
+                  draggable={false}
                   className="w-full h-full object-cover"
                   src={imageSrc}
                   onError={() => setFailedImageSrc(imageSrc)}
@@ -305,29 +346,32 @@ export const PhotoSlot = React.memo<PhotoSlotProps>(
                 </svg>
               )}
             </div>
-            {/* Indicador de candado visual cuando está impreso (oculto en impresión) */}
-            {isPrinted && !isExporting && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none print:hidden">
-                <svg
-                  className="w-6 h-6 mb-1 opacity-70"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" />
-                </svg>
-                <span className="text-[9px] font-bold uppercase tracking-widest opacity-70 text-center leading-none">
-                  Impreso
-                </span>
-              </div>
-            )}
           </>
-        ) : !isExporting ? (
+        ) : !isExporting && !isPrinted ? (
           <span className="text-xs text-slate-300 print:hidden">Vacío</span>
         ) : null}
+
+        {/* Indicador de candado cuando está impreso (oculto en impresión).
+            Al marcar como impreso la foto se libera: solo queda este recuadro. */}
+        {isPrinted && !isExporting && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 pointer-events-none print:hidden">
+            <svg
+              className="w-6 h-6 mb-1 opacity-70"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" />
+            </svg>
+            <span className="text-[9px] font-bold uppercase tracking-widest opacity-70 text-center leading-none">
+              Impreso
+            </span>
+          </div>
+        )}
 
         {/* Modal para ingresar cantidad a duplicar */}
         {showDuplicateModal && !isExporting && (
           <div
+            data-modal-open
             className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm print:hidden"
             onClick={(e) => {
               e.stopPropagation();

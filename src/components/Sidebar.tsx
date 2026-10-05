@@ -1,6 +1,7 @@
 import React from "react";
 import { usePaperStore } from "../store/usePaperStore";
 import { CropModal } from "./CropModal";
+import { GALLERY_DRAG_MIME } from "../config/constants";
 import { useSidebarUpload } from "../hooks/useSidebarUpload";
 import { useSidebarActions } from "../hooks/useSidebarActions";
 
@@ -26,6 +27,7 @@ export const Sidebar: React.FC = () => {
     confirmDialog,
     setConfirmDialog,
     handleDeleteImage,
+    handlePlaceImage,
     handleEditClick,
     handleCropSave,
     handleClearGallery,
@@ -209,6 +211,13 @@ export const Sidebar: React.FC = () => {
             {uploadedImages.map((img) => (
               <div
                 key={img.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(GALLERY_DRAG_MIME, img.id);
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                onDoubleClick={() => handlePlaceImage(img.id)}
+                title="Arrastra a la hoja o haz doble clic para colocarla"
                 className="relative group aspect-3/4 bg-white rounded-md border border-slate-200 overflow-hidden shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing"
               >
                 <button
@@ -254,11 +263,15 @@ export const Sidebar: React.FC = () => {
                 <img
                   src={img.url}
                   alt={`Upload ${img.id}`}
+                  draggable={false}
                   className="w-full h-full object-cover"
                 />
               </div>
             ))}
           </div>
+          <p className="mt-2 text-[11px] text-slate-400 text-center italic">
+            Arrastra una foto a la hoja o haz doble clic para colocarla.
+          </p>
         </section>
       )}
 
@@ -309,6 +322,7 @@ export const Sidebar: React.FC = () => {
       {/* Modal de Confirmación */}
       {confirmDialog?.isOpen && (
         <div
+          data-modal-open
           className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"
           onClick={() => setConfirmDialog(null)}
         >

@@ -3,6 +3,7 @@ además de centralizar y evitar la duplicación del código que procesa las imá
 */
 import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
 import { processAndQueueFiles } from "../services/imageProcessor";
+import { isInternalDrag } from "../config/constants";
 
 export const useSidebarUpload = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -28,6 +29,8 @@ export const useSidebarUpload = () => {
   };
 
   const handleDragOver = (e: DragEvent) => {
+    // Los arrastres internos no se pueden soltar aquí (no son una subida).
+    if (isInternalDrag(e.dataTransfer.types)) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
@@ -43,6 +46,7 @@ export const useSidebarUpload = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    if (isInternalDrag(e.dataTransfer.types)) return;
     await processFiles(Array.from(e.dataTransfer.files));
   };
 

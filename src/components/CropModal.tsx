@@ -56,6 +56,7 @@ export const CropModal: React.FC<CropModalProps> = ({
 
   return (
     <div
+      data-modal-open
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >

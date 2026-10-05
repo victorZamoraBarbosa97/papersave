@@ -6,11 +6,7 @@ y el modal de confirmación con sus atajos de teclado.
 import { useState, useEffect } from "react";
 import { usePaperStore } from "../store/usePaperStore";
 import type { CropData } from "../types";
-import {
-  saveImageToDB,
-  deleteImageFromDB,
-  clearAllImagesFromDB,
-} from "../utils/storage";
+import { saveImageToDB, clearAllImagesFromDB } from "../utils/storage";
 
 export const useSidebarActions = () => {
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
@@ -50,15 +46,27 @@ export const useSidebarActions = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleDeleteImage = async (e: React.MouseEvent, id: string) => {
+  // La galería solo quita miniaturas: NUNCA borra blobs de IndexedDB, porque
+  // la misma imagen puede estar en un slot de la hoja (o en el historial de
+  // deshacer). El recolector de useAppInitialization elimina lo huérfano.
+  const handleDeleteImage = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await deleteImageFromDB(id);
-      removeUploadedImage(id);
-    } catch (error) {
-      console.error("Failed to delete image:", error);
-    }
+    removeUploadedImage(id);
+  };
+
+  // Doble clic en una miniatura: la coloca en el primer espacio libre.
+  const handlePlaceImage = (id: string) => {
+    const image = usePaperStore
+      .getState()
+      .uploadedImages.find((img) => img.id === id);
+    if (!image) return;
+    const placed = usePaperStore.getState().placeImageInSlot(image);
+    showToast(
+      placed
+        ? "Foto colocada en la hoja."
+        : "No hay espacios libres en la hoja.",
+    );
   };
 
   const handleEditClick = (e: React.MouseEvent, id: string) => {
@@ -69,15 +77,24 @@ export const useSidebarActions = () => {
 
   const handleCropSave = async (blob: Blob, newCropData: CropData) => {
     if (!editingImageId) return;
+    const current = usePaperStore
+      .getState()
+      .uploadedImages.find((img) => img.id === editingImageId);
     try {
-      const newId = await saveImageToDB(blob);
+      const newId = await saveImageToDB(blob, true, {
+        originalId: current?.originalId,
+        cropData: newCropData,
+      });
       const newUrl = URL.createObjectURL(blob);
+      // Merge: se conserva el original (originalId/originalUrl) para poder
+      // volver a re-encuadrar desde la foto completa.
       updateUploadedImage(editingImageId, {
+        ...current,
         id: newId,
         url: newUrl,
         cropData: newCropData,
       });
-      await deleteImageFromDB(editingImageId);
+      // El blob anterior no se borra aquí: un slot puede seguir usándolo.
     } catch (error) {
       console.error("Failed to save cropped image:", error);
     }
@@ -88,9 +105,8 @@ export const useSidebarActions = () => {
     setConfirmDialog({
       isOpen: true,
       message:
-        "¿Estás seguro de que deseas eliminar todas las fotos de la galería? Esto liberará memoria del navegador.",
-      onConfirm: async () => {
-        await clearAllImagesFromDB();
+        "¿Quitar todas las miniaturas de la galería? Las fotos que ya están en la hoja no se verán afectadas.",
+      onConfirm: () => {
         setUploadedImages([]);
         showToast("Galería limpiada correctamente.");
         setConfirmDialog(null);
@@ -105,6 +121,9 @@ export const useSidebarActions = () => {
         "¿Estás seguro de que deseas vaciar la cuadrícula por completo y eliminar todas las imágenes subidas?",
       onConfirm: async () => {
         resetPaper();
+        // Borrado total e irreversible: se vacía el historial antes de la base
+        // de datos para que Ctrl+Z no restaure slots cuyos blobs ya no existen.
+        usePaperStore.temporal.getState().clear();
         await clearAllImagesFromDB();
         setUploadedImages([]);
         showToast("Todo se ha limpiado correctamente.");
@@ -125,6 +144,7 @@ export const useSidebarActions = () => {
     confirmDialog,
     setConfirmDialog,
     handleDeleteImage,
+    handlePlaceImage,
     handleEditClick,
     handleCropSave,
     handleClearGallery,

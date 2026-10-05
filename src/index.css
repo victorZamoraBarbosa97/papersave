@@ -50,8 +50,7 @@
   /* Ocultar elementos de UI al imprimir */
   header,
   aside,
-  .safety-margin,
-  [data-purpose="status-toast"] {
+  .safety-margin {
     display: none !important;
   }
   .main-canvas-area {

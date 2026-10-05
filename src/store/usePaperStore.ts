@@ -36,7 +36,13 @@ interface PaperState {
   setUploadedImages: (images: UploadedImage[]) => void;
   removeUploadedImage: (id: string) => void;
   updateUploadedImage: (id: string, image: UploadedImage) => void;
-  addImageAndFillSlot: (image: UploadedImage) => void;
+  addUploadedImage: (image: UploadedImage) => void;
+  // Coloca una foto que ya está en la galería. Sin slotId usa el primer espacio
+  // libre. Devuelve false si no hubo lugar (hoja llena o espacio bloqueado).
+  placeImageInSlot: (image: UploadedImage, slotId?: number) => boolean;
+  // Mueve la foto de un espacio a otro (si el destino tiene foto, se intercambian).
+  // Devuelve false si el movimiento no es válido (origen vacío o espacio bloqueado).
+  moveSlot: (fromId: number, toId: number) => boolean;
   occupySlot: (
     id: number,
     data: string,
@@ -47,11 +53,6 @@ interface PaperState {
   ) => void;
   duplicateSlot: (id: number | number[], count?: number) => void;
   toggleSlotPrinted: (id: number | number[]) => void;
-  updateSlotUrls: (
-    id: number,
-    imageData?: string,
-    originalImageData?: string,
-  ) => void;
   selectedSlotIds: number[];
   toggleSlotSelection: (id: number) => void;
   clearSelection: () => void;
@@ -100,7 +101,10 @@ export const usePaperStore = create<PaperState>()(
                         ...s,
                         isOccupied: false,
                         imageData: undefined,
+                        originalImageData: undefined,
+                        cropData: undefined,
                         imageId: undefined,
+                        originalImageId: undefined,
                         isPrinted: false,
                       }
                     : s,
@@ -138,28 +142,69 @@ export const usePaperStore = create<PaperState>()(
               ),
             })),
 
-          addImageAndFillSlot: (image: UploadedImage) =>
-            set((state) => {
-              const firstEmptySlotIndex = state.slots.findIndex(
-                (slot) => !slot.isOccupied && !slot.isPrinted,
-              );
-              const newSlots = [...state.slots];
-              if (firstEmptySlotIndex !== -1) {
-                newSlots[firstEmptySlotIndex] = {
-                  ...newSlots[firstEmptySlotIndex],
-                  isOccupied: true,
-                  imageData: image.url,
-                  originalImageData: image.originalUrl,
-                  cropData: image.cropData,
-                  imageId: image.id,
-                  originalImageId: image.originalId,
-                };
-              }
-              return {
-                uploadedImages: [...state.uploadedImages, image],
-                slots: newSlots,
-              };
-            }),
+          // Una foto recién subida solo entra a la galería; el usuario decide
+          // en qué espacio de la hoja colocarla.
+          addUploadedImage: (image: UploadedImage) =>
+            set((state) => ({
+              uploadedImages: [...state.uploadedImages, image],
+            })),
+
+          placeImageInSlot: (image: UploadedImage, slotId?: number) => {
+            const { slots } = usePaperStore.getState();
+            const targetIndex =
+              slotId === undefined
+                ? slots.findIndex((s) => !s.isOccupied && !s.isPrinted)
+                : slots.findIndex((s) => s.id === slotId && !s.isPrinted);
+            if (targetIndex === -1) return false;
+
+            set((state) => ({
+              slots: state.slots.map((s, i) =>
+                i === targetIndex
+                  ? {
+                      ...s,
+                      isOccupied: true,
+                      imageData: image.url,
+                      originalImageData: image.originalUrl,
+                      cropData: image.cropData,
+                      imageId: image.id,
+                      originalImageId: image.originalId,
+                    }
+                  : s,
+              ),
+            }));
+            return true;
+          },
+
+          moveSlot: (fromId: number, toId: number) => {
+            const { slots } = usePaperStore.getState();
+            const from = slots.find((s) => s.id === fromId);
+            const to = slots.find((s) => s.id === toId);
+            if (!from || !to || from.id === to.id) return false;
+            if (!from.imageData || from.isPrinted || to.isPrinted) return false;
+
+            const content = (s: PhotoSlot) => ({
+              isOccupied: s.isOccupied,
+              imageData: s.imageData,
+              originalImageData: s.originalImageData,
+              cropData: s.cropData,
+              imageId: s.imageId,
+              originalImageId: s.originalImageId,
+            });
+            const fromContent = content(from);
+            const toContent = content(to);
+
+            set((state) => ({
+              slots: state.slots.map((s) =>
+                s.id === fromId
+                  ? { ...s, ...toContent }
+                  : s.id === toId
+                    ? { ...s, ...fromContent }
+                    : s,
+              ),
+              selectedSlotIds: [],
+            }));
+            return true;
+          },
 
           occupySlot: (
             id: number,
@@ -189,10 +234,13 @@ export const usePaperStore = create<PaperState>()(
             set((state) => {
               const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
               const newSlots = [...state.slots];
+              let anyChange = false;
 
               ids.forEach((id) => {
                 const sourceSlot = state.slots.find((s) => s.id === id);
-                if (!sourceSlot || !sourceSlot.isOccupied) return;
+                // Un espacio impreso (sin foto) no se puede duplicar.
+                if (!sourceSlot || !sourceSlot.isOccupied || !sourceSlot.imageData)
+                  return;
 
                 let duplicatesCreated = 0;
                 for (
@@ -211,49 +259,65 @@ export const usePaperStore = create<PaperState>()(
                       originalImageId: sourceSlot.originalImageId,
                     };
                     duplicatesCreated++;
+                    anyChange = true;
                   }
                 }
               });
 
-              return { slots: newSlots, selectedSlotIds: [] };
+              // Sin copias nuevas se conserva la misma referencia de slots, para
+              // no registrar un paso vacío en el historial de deshacer.
+              return anyChange
+                ? { slots: newSlots, selectedSlotIds: [] }
+                : { selectedSlotIds: [] };
             }),
 
           toggleSlotPrinted: (idOrIds: number | number[]) =>
             set((state: PaperState) => {
               const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
+              // La foto de un espacio impreso ya no hace falta: se suelta la
+              // referencia al blob (el GC lo borra si nadie más lo usa).
+              const noImage = {
+                imageData: undefined,
+                originalImageData: undefined,
+                cropData: undefined,
+                imageId: undefined,
+                originalImageId: undefined,
+              };
               return {
-                slots: state.slots.map((s: PhotoSlot) =>
-                  ids.includes(s.id) ? { ...s, isPrinted: !s.isPrinted } : s,
-                ),
+                slots: state.slots.map((s: PhotoSlot) => {
+                  if (!ids.includes(s.id)) return s;
+                  // Desbloquear: queda vacío y disponible para una foto nueva.
+                  if (s.isPrinted)
+                    return { ...s, ...noImage, isPrinted: false, isOccupied: false };
+                  // Marcar: conserva isOccupied para seguir contando como usado.
+                  return { ...s, ...noImage, isPrinted: true };
+                }),
               };
             }),
-
-          updateSlotUrls: (
-            id: number,
-            imageData?: string,
-            originalImageData?: string,
-          ) =>
-            set((state: PaperState) => ({
-              slots: state.slots.map((s: PhotoSlot) =>
-                s.id === id
-                  ? {
-                      ...s,
-                      imageData: imageData ?? s.imageData,
-                      originalImageData:
-                        originalImageData ?? s.originalImageData,
-                    }
-                  : s,
-              ),
-            })),
         }),
         {
           limit: 10,
+          // El historial solo guarda la cuadrícula. Selección y galería son
+          // estado de UI/derivado y no deben consumir pasos de deshacer.
+          partialize: (state) => ({ slots: state.slots }),
+          // Si `slots` conserva la misma referencia, el cambio no es deshacible
+          // (ej. cambiar la selección) y no se registra ningún paso.
+          equality: (past, current) => past.slots === current.slots,
         },
       ),
       {
         name: "paper-storage",
         // Solo persistimos la cuadrícula. La galería se recarga 100% de IndexedDB al iniciar.
-        partialize: (state) => ({ slots: state.slots }),
+        // Las blob URLs mueren al cerrar el navegador: solo se guardan los ids
+        // (imageId/originalImageId) y useAppInitialization recrea las URLs
+        // desde IndexedDB al abrir.
+        partialize: (state) => ({
+          slots: state.slots.map((slot) => ({
+            ...slot,
+            imageData: undefined,
+            originalImageData: undefined,
+          })),
+        }),
       },
     ),
   ),

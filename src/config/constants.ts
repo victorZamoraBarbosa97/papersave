@@ -12,6 +12,18 @@ export const PASSPORT_ASPECT_RATIO = PASSPORT_WIDTH_CM / PASSPORT_HEIGHT_CM;
 // Ajustes de Inteligencia Artificial (Detección Facial)
 export const FACE_VERTICAL_OFFSET_PERCENTAGE = 0.13; // Mover el encuadre 13% hacia arriba
 
+// Tipo de dato propio para arrastrar fotos DE LA GALERÍA hacia la hoja.
+// Distingue ese arrastre interno de un archivo que viene de la computadora.
+export const GALLERY_DRAG_MIME = "application/x-papersave-image";
+
+// Tipo de dato para mover una foto de un espacio de la hoja a otro.
+export const SLOT_DRAG_MIME = "application/x-papersave-slot";
+
+// ¿El arrastre es interno de la app (galería u otro espacio)? Si lo es, NO es
+// una subida de archivos aunque el navegador incluya "Files" en el dataTransfer.
+export const isInternalDrag = (types: readonly string[]) =>
+  types.includes(GALLERY_DRAG_MIME) || types.includes(SLOT_DRAG_MIME);
+
 // Cuadrícula de papel (Grid)
 export const PAPER_COLS = 6;
 export const PAPER_ROWS = 8;

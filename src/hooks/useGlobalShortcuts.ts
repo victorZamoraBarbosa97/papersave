@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePaperStore } from "../store/usePaperStore";
+import { undoSafely, redoSafely } from "../utils/history";
 
 export const useGlobalShortcuts = (
   editingSlotId: number | null,
@@ -15,26 +16,40 @@ export const useGlobalShortcuts = (
     const handleGlobalShortcuts = (event: KeyboardEvent) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
+      // Si el usuario está escribiendo en un campo (ej. cantidad de copias),
+      // Backspace/Delete/Ctrl+Z deben editar el texto, no la cuadrícula.
+      const target = event.target as HTMLElement | null;
+      const isTyping = !!target?.closest(
+        "input, textarea, select, [contenteditable='true']",
+      );
+
+      // Con un popup abierto (crop, confirmación, duplicar, menú contextual)
+      // la cuadrícula es "vista secundaria": se protege de borrados y undo/redo
+      // aunque el foco ya no esté dentro del popup (ej. tras pulsar Tab).
+      const isModalOpen = !!document.querySelector("[data-modal-open]");
+
       if (isCtrlOrCmd && event.key === "p") {
         event.preventDefault();
         window.print();
       }
 
-      if (isCtrlOrCmd && event.key === "z" && !event.shiftKey) {
+      if (isCtrlOrCmd && event.key === "z" && !event.shiftKey && !isTyping && !isModalOpen) {
         event.preventDefault();
-        usePaperStore.temporal.getState().undo();
+        undoSafely();
       }
 
-      if (isCtrlOrCmd && event.key === "y") {
+      if (isCtrlOrCmd && event.key === "y" && !isTyping && !isModalOpen) {
         event.preventDefault();
-        usePaperStore.temporal.getState().redo();
+        redoSafely();
       }
 
       if (event.key === "Escape") clearSelection();
 
       if (
         (event.key === "Delete" || event.key === "Backspace") &&
-        editingSlotId === null
+        editingSlotId === null &&
+        !isTyping &&
+        !isModalOpen
       ) {
         if (selectedSlotIds.length > 0) {
           clearSlot(selectedSlotIds);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { usePaperStore } from "../store/usePaperStore";
 import type { HeaderProps } from "../types";
+import { undoSafely, redoSafely } from "../utils/history";
 
 const SaveStatus: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
@@ -68,7 +69,7 @@ export const Header = React.memo<HeaderProps>(
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 border-r border-slate-200 pr-4 mr-2">
             <button
-              onClick={() => usePaperStore.temporal.getState().undo()}
+              onClick={() => undoSafely()}
               className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100 cursor-pointer active:scale-95"
               title="Deshacer (Ctrl+Z)"
             >
@@ -88,7 +89,7 @@ export const Header = React.memo<HeaderProps>(
               </svg>
             </button>
             <button
-              onClick={() => usePaperStore.temporal.getState().redo()}
+              onClick={() => redoSafely()}
               className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100 cursor-pointer active:scale-95"
               title="Rehacer (Ctrl+Y)"
             >

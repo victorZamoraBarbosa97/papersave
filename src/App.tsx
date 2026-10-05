@@ -14,8 +14,9 @@ import { useMarqueeSelection } from "./hooks/useMarqueeSelection";
 import { useGlobalDragAndDrop } from "./hooks/useGlobalDragAndDrop";
 import { ProcessingOverlay } from "./components/ProcessingOverlay";
 import { DragDropOverlay } from "./components/DragDropOverlay";
-import { StatusToast } from "./components/StatusToast";
 import { MarqueeOverlay } from "./components/MarqueeOverlay";
+import { PrintPrompt } from "./components/PrintPrompt";
+import { usePrintPrompt } from "./hooks/usePrintPrompt";
 
 function App() {
   const [isExporting, setIsExporting] = useState(false);
@@ -39,6 +40,7 @@ function App() {
     handleDragLeave,
     handleGlobalDrop,
   } = useGlobalDragAndDrop();
+  const { pendingCount, requestPrompt, confirm, dismiss } = usePrintPrompt();
 
   const handleExportPdf = async () => {
     if (paperSheetRef.current) {
@@ -49,6 +51,7 @@ function App() {
 
       try {
         await exportPaperAsPDF(paperSheetRef.current);
+        requestPrompt(); // el PDF ya se generó: ofrece marcar las fotos como impresas
       } catch (error) {
         console.error("Failed to export PDF:", error);
       } finally {
@@ -103,6 +106,16 @@ function App() {
     state.toggleSlotPrinted(ids);
   }, []);
 
+  const handleSlotDropImage = useCallback((slotId: number, imageId: string) => {
+    const state = usePaperStore.getState();
+    const image = state.uploadedImages.find((img) => img.id === imageId);
+    if (image) state.placeImageInSlot(image, slotId);
+  }, []);
+
+  const handleSlotMove = useCallback((fromId: number, toId: number) => {
+    usePaperStore.getState().moveSlot(fromId, toId);
+  }, []);
+
   const handleSlotClear = useCallback((id: number) => {
     const state = usePaperStore.getState();
     const ids = state.selectedSlotIds.includes(id)
@@ -115,6 +128,9 @@ function App() {
     <div
       className="relative flex flex-col h-screen overflow-hidden bg-slate-50 font-sans"
       onDragOver={(e) => e.preventDefault()}
+      // Red de seguridad: un drop fuera de cualquier zona nunca debe dejar que el
+      // navegador abra el archivo (se perdería la sesión).
+      onDrop={(e) => e.preventDefault()}
       onDragEnterCapture={handleDragEnter}
     >
       {isProcessing && <ProcessingOverlay />}
@@ -168,13 +184,21 @@ function App() {
                 onDuplicate={handleSlotDuplicate}
                 onTogglePrinted={handleSlotTogglePrinted}
                 onClear={handleSlotClear}
+                onDropGalleryImage={handleSlotDropImage}
+                onMoveImage={handleSlotMove}
               />
             ))}
           </PaperSheet>
         </main>
       </div>
 
-      <StatusToast />
+      {pendingCount > 0 && (
+        <PrintPrompt
+          count={pendingCount}
+          onConfirm={confirm}
+          onDismiss={dismiss}
+        />
+      )}
       {marqueeStart && marqueeCurrent && (
         <MarqueeOverlay
           marqueeStart={marqueeStart}

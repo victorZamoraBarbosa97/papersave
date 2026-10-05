@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from "idb";
+import type { CropData, UploadedImage } from "../types";
 
 const DB_NAME = "PaperSaveDB";
 const STORE_NAME = "images";
@@ -10,6 +11,15 @@ interface StoredImage {
   blob: Blob;
   date: Date;
   isGallery?: boolean;
+  // Metadatos de las imágenes de galería: permiten volver a editar el recorte
+  // desde la foto original aunque se cierre y reabra la app.
+  originalId?: string;
+  cropData?: CropData;
+}
+
+interface ImageMeta {
+  originalId?: string;
+  cropData?: CropData;
 }
 
 export const initDB = () => {
@@ -28,26 +38,39 @@ export const initDB = () => {
 export const saveImageToDB = async (
   file: File | Blob,
   isGallery: boolean = true,
+  meta: ImageMeta = {},
 ): Promise<string> => {
   const db = await initDB();
   const id = crypto.randomUUID();
 
-  await db.put(STORE_NAME, { id, blob: file, date: new Date(), isGallery });
+  await db.put(STORE_NAME, {
+    id,
+    blob: file,
+    date: new Date(),
+    isGallery,
+    ...meta,
+  });
   return id;
 };
 
-export const loadImagesFromDB = async (): Promise<
-  { id: string; url: string }[]
-> => {
+export const loadImagesFromDB = async (): Promise<UploadedImage[]> => {
   const db = await initDB();
-  const allItems = await db.getAll(STORE_NAME);
+  const allItems: StoredImage[] = await db.getAll(STORE_NAME);
+  const byId = new Map(allItems.map((item) => [item.id, item]));
 
   return allItems
-    .filter((item: StoredImage) => item.isGallery !== false) // Evitamos mostrar imágenes internas
-    .map((item: StoredImage) => ({
-      id: item.id,
-      url: URL.createObjectURL(item.blob),
-    }));
+    .filter((item) => item.isGallery !== false) // Evitamos mostrar imágenes internas
+    .map((item) => {
+      // Si el original ya no existe, se omite la referencia en vez de dejarla rota.
+      const original = item.originalId ? byId.get(item.originalId) : undefined;
+      return {
+        id: item.id,
+        url: URL.createObjectURL(item.blob),
+        originalId: original?.id,
+        originalUrl: original ? URL.createObjectURL(original.blob) : undefined,
+        cropData: item.cropData,
+      };
+    });
 };
 
 export const getBlobFromDB = async (id: string): Promise<Blob | undefined> => {

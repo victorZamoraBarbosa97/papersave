@@ -11,11 +11,8 @@ export const PaperSheet = forwardRef<HTMLElement, PaperSheetProps>(
       >
         {/* Safety Margin Overlay */}
         {!isExporting && (
-          <div
-            className="safety-margin print:hidden"
-            data-html2canvas-ignore="true"
-          >
-            5.0CM SAFETY MARGIN - DO NOT PLACE CONTENT HERE
+          <div className="safety-margin print:hidden">
+            MARGEN DE SEGURIDAD DE 5 CM · NO COLOCAR FOTOS AQUÍ
           </div>
         )}
 
