@@ -4,6 +4,8 @@
 
 🔗 **¡Pruébalo en vivo! [PaperSave Live Preview](https://papersave-53ca5.web.app/)**
 
+<!-- CAPTURAS: agregar aquí las imágenes de la app (ej. ![PaperSave](docs/captura-hoja.png)) -->
+
 PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y preparación de fotografías de documentos. Su principal característica es que **todo el procesamiento de Inteligencia Artificial ocurre localmente en el dispositivo del usuario**, garantizando cero consumo de datos de red tras la primera carga, velocidad ultrarrápida y privacidad absoluta.
 
 ---
@@ -13,20 +15,24 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 - 🤖 **Eliminación de Fondo con IA (Offline):** Utiliza el modelo `isnet_fp16` para extraer sujetos con precisión milimétrica (incluso cabello). No se envían fotos a ningún servidor.
 - 👱‍♂️ **Detección Facial Automática:** Usa `face-api.js` dentro de un Web Worker dedicado para detectar rostros y sugerir el recorte perfecto.
 - ⚡ **WebAssembly Multihilo (Modo Turbo):** Aprovecha `SharedArrayBuffer` y múltiples núcleos del procesador para recortes y procesamientos casi instantáneos.
-- 📱 **Aplicación Web Progresiva (PWA):** Instalable en escritorio. Los modelos de IA pesados (~40MB) se guardan en la caché del Service Worker para funcionar 100% sin internet en visitas posteriores.
-- 🗄️ **Almacenamiento Local (IndexedDB):** Tus fotos y el estado del lienzo se guardan en la base de datos de tu propio navegador para que no pierdas tu progreso.
+- 📱 **Aplicación Web Progresiva (PWA):** Instalable en escritorio. Los modelos de IA pesados (~75MB) se guardan en la caché del Service Worker para funcionar 100% sin internet en visitas posteriores.
+- 🗄️ **Almacenamiento Local (IndexedDB):** Tus fotos y el estado de la hoja se guardan en la base de datos de tu propio navegador y sobreviven a cierres y reinicios. Se solicita almacenamiento persistente para que el navegador no lo borre, y la hoja nunca muestra imágenes rotas si una foto falta.
 - ⏪ **Historial de Acciones:** Funcionalidad de Deshacer/Rehacer (Undo/Redo) construida con Zustand y Zundo.
 - 🖨️ **Exportación PDF y Soporte de Impresión:** Generación de hojas listas para imprimir generadas completamente en el cliente.
+- ✅ **Control de lo ya impreso:** Pensado para llenar la misma hoja a lo largo de varios días. Tras imprimir o exportar el PDF, la app ofrece marcar las fotos como impresas (el navegador no puede saber si realmente se imprimió, por eso pregunta) y libera el espacio que ocupaban.
 
 ---
 
 ## 📖 Guía de Uso Rápido
 
-1. **Sube tu foto:** Arrastra y suelta tu imagen en el panel lateral.
+1. **Sube tu foto:** Usa el botón "Subir Fotos" o arrastra y suelta tus imágenes en cualquier parte de la ventana. Llegan a la galería del panel lateral.
 2. **Encuadre Automático:** La IA detectará tu rostro y sugerirá el recorte perfecto para una foto tamaño infantil.
-3. **Eliminación de Fondo:** Haz clic en "Quitar Fondo" para aislar al sujeto con precisión gracias a la IA local. Puedes dejar el fondo transparente o agregar uno de color.
-4. **Arma tu planilla:** Arrastra la foto procesada a los espacios de la cuadrícula.
-5. **Exporta o Imprime:** Selecciona "Exportar PDF" o "Imprimir" para generar tu documento de alta resolución listo para papel fotográfico.
+3. **Eliminación de Fondo:** En el editor de recorte (botón de lápiz en la miniatura, o clic derecho → "Editar Recorte" en la hoja), haz clic en "Quitar Fondo" para aislar al sujeto con precisión gracias a la IA local. El resultado se compone sobre fondo blanco, listo para imprimir.
+4. **Arma tu planilla:** Las fotos subidas llegan primero a la galería. Tú decides dónde ponerlas: arrastra una miniatura a un espacio concreto o haz doble clic para colocarla en el primer espacio libre. Dentro de la hoja puedes mover o intercambiar fotos arrastrándolas.
+5. **Marca lo ya impreso:** Con clic derecho → "Marcar como impreso" el espacio se bloquea y se libera la foto (queda un recuadro con candado), para ir llenando la misma hoja a lo largo de varios días.
+6. **Exporta o Imprime:** Selecciona "Exportar PDF" o "Imprimir" para generar tu documento de alta resolución listo para papel fotográfico. Al terminar, la app te pregunta si quieres marcar las fotos como impresas.
+
+**Atajos:** `Ctrl+Z` / `Ctrl+Y` deshacer y rehacer · `Ctrl+P` imprimir · `Supr` / `Retroceso` limpiar el espacio seleccionado o bajo el cursor · `Esc` quitar la selección · arrastrar un recuadro sobre la hoja para seleccionar varios espacios.
 
 ---
 
@@ -60,9 +66,9 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   │   ├── 📄 MarqueeOverlay.tsx
 │   │   ├── 📄 PaperSheet.tsx
 │   │   ├── 📄 PhotoSlot.tsx
+│   │   ├── 📄 PrintPrompt.tsx
 │   │   ├── 📄 ProcessingOverlay.tsx
-│   │   ├── 📄 Sidebar.tsx
-│   │   └── 📄 StatusToast.tsx
+│   │   └── 📄 Sidebar.tsx
 │   ├── 📁 config
 │   │   └── 📄 constants.ts
 │   ├── 📁 hooks
@@ -71,6 +77,7 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   │   ├── 📄 useGlobalDragAndDrop.ts
 │   │   ├── 📄 useGlobalShortcuts.ts
 │   │   ├── 📄 useMarqueeSelection.ts
+│   │   ├── 📄 usePrintPrompt.ts
 │   │   ├── 📄 useSidebarActions.ts
 │   │   └── 📄 useSidebarUpload.ts
 │   ├── 📁 services
@@ -81,7 +88,9 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   │   └── 📄 index.ts
 │   ├── 📁 utils
 │   │   ├── 📄 faceDetection.ts
+│   │   ├── 📄 history.ts
 │   │   ├── 📄 pdf.ts
+│   │   ├── 📄 rehydrate.ts
 │   │   └── 📄 storage.ts
 │   ├── 📁 workers
 │   │   └── 📄 faceDetectionWorker.ts
@@ -90,8 +99,9 @@ PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y p
 │   └── 📄 main.tsx
 ├── ⚙️ .firebaserc
 ├── ⚙️ .gitignore
+├── 📄 LICENSE
 ├── 📝 README.md
-├── 📄 bun.lock
+├── 📄 package-lock.json
 ├── 📄 eslint.config.js
 ├── ⚙️ firebase.json
 ├── 🌐 index.html
@@ -132,7 +142,7 @@ El Service Worker está configurado mediante Workbox para ignorar el límite hab
 
 ### Requisitos Previos
 
-- Node.js v18+ o Bun.
+- Node.js v20.19+ (o v22.12+) con npm.
 
 ### Instalación
 
@@ -140,8 +150,6 @@ El Service Worker está configurado mediante Workbox para ignorar el límite hab
 2. Instala las dependencias:
    ```bash
    npm install
-   # o
-   bun install
    ```
    _Nota: El paquete `@imgly/background-removal-data` se descarga directamente desde su tarball oficial debido a su descontinuación en los registros de NPM._
 
@@ -178,10 +186,19 @@ npm run preview
 PaperSave está configurado para desplegarse fácilmente en Firebase Hosting. El archivo `firebase.json` contiene la configuración vital necesaria para habilitar el motor neuronal multihilo.
 
 ```bash
-firebase deploy
+npm run build
+firebase deploy --only hosting
 ```
 
 _Si actualizas la aplicación tras un despliegue y experimentas errores de carga en la IA, asegúrate de limpiar los datos del sitio en tu navegador (`F12` -> Application -> Clear Site Data) para que el Service Worker descargue las nuevas cabeceras de seguridad._
+
+---
+
+## ⚠️ Limitaciones Conocidas
+
+- `face-api.js` ya no recibe mantenimiento y arrastra dependencias antiguas de TensorFlow.js (`npm audit` reporta avisos de `node-fetch`, que es código de Node y no se ejecuta en el navegador). Es candidata a reemplazarse.
+- La hoja es de un solo formato (Carta, cuadrícula de 6×8 fotos de 2.5 × 3 cm).
+- El navegador no informa si el diálogo de impresión terminó en impresión o en cancelación, por eso marcar como impreso requiere confirmación.
 
 ---
 
