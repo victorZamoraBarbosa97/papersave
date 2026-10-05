@@ -1,77 +1,35 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { temporal } from "zundo";
+import type { PaperState, PhotoSlot, UploadedImage, CropData } from "../types";
+import { TOTAL_PAPER_SLOTS } from "../config/constants";
 
-export interface CropData {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+// Lo único que se guarda en localStorage (ver `partialize` más abajo).
+type PersistedPaper = Pick<PaperState, "slots">;
 
-interface PhotoSlot {
-  id: number;
-  isOccupied: boolean;
-  imageData?: string;
-  originalImageData?: string;
-  cropData?: CropData;
-  isPrinted?: boolean; // <-- Nuevo estado
-  imageId?: string; // ID de la imagen en IndexedDB
-  originalImageId?: string; // ID de la imagen original en IndexedDB
-}
+const createEmptySlots = (): PhotoSlot[] =>
+  Array.from({ length: TOTAL_PAPER_SLOTS }, (_, i) => ({
+    id: i,
+    isOccupied: false,
+  }));
 
-export interface UploadedImage {
-  id: string;
-  url: string;
-  originalUrl?: string;
-  originalId?: string;
-  cropData?: CropData;
-}
-
-interface PaperState {
-  slots: PhotoSlot[];
-  clearSlot: (id: number | number[]) => void;
-  resetPaper: () => void;
-  uploadedImages: UploadedImage[]; // New state for images not yet placed
-  setUploadedImages: (images: UploadedImage[]) => void;
-  removeUploadedImage: (id: string) => void;
-  updateUploadedImage: (id: string, image: UploadedImage) => void;
-  addUploadedImage: (image: UploadedImage) => void;
-  // Coloca una foto que ya está en la galería. Sin slotId usa el primer espacio
-  // libre. Devuelve false si no hubo lugar (hoja llena o espacio bloqueado).
-  placeImageInSlot: (image: UploadedImage, slotId?: number) => boolean;
-  // Mueve la foto de un espacio a otro (si el destino tiene foto, se intercambian).
-  // Devuelve false si el movimiento no es válido (origen vacío o espacio bloqueado).
-  moveSlot: (fromId: number, toId: number) => boolean;
-  occupySlot: (
-    id: number,
-    data: string,
-    originalData?: string,
-    cropData?: CropData,
-    imageId?: string,
-    originalImageId?: string,
-  ) => void;
-  duplicateSlot: (id: number | number[], count?: number) => void;
-  toggleSlotPrinted: (id: number | number[]) => void;
-  selectedSlotIds: number[];
-  toggleSlotSelection: (id: number) => void;
-  clearSelection: () => void;
-  setSelectedSlots: (ids: number[]) => void;
-}
+// Redux DevTools solo en desarrollo (en producción no se incluye).
+const withDevtools = (
+  import.meta.env.DEV ? devtools : (initializer: unknown) => initializer
+) as unknown as typeof devtools;
 
 export const usePaperStore = create<PaperState>()(
-  devtools(
+  withDevtools(
     persist(
       temporal(
         (set) => ({
-          // Grid de 6x8 (48 fotos infantiles por hoja)
-          slots: Array.from({ length: 48 }, (_, i) => ({
-            id: i,
-            isOccupied: false,
-            isCircular: i === 1, // Example: make second slot circular
-          })),
+          // Cuadrícula de PAPER_COLS x PAPER_ROWS fotos infantiles por hoja
+          slots: createEmptySlots(),
           uploadedImages: [], // Initialize empty
           selectedSlotIds: [],
+          isProcessing: false,
+
+          setIsProcessing: (value: boolean) => set({ isProcessing: value }),
 
           clearSelection: () => set({ selectedSlotIds: [] }),
 
@@ -117,11 +75,7 @@ export const usePaperStore = create<PaperState>()(
 
           resetPaper: () =>
             set({
-              slots: Array.from({ length: 48 }, (_, i) => ({
-                id: i,
-                isOccupied: false,
-                isCircular: i === 1,
-              })),
+              slots: createEmptySlots(),
               selectedSlotIds: [],
             }),
 
@@ -307,6 +261,12 @@ export const usePaperStore = create<PaperState>()(
       ),
       {
         name: "paper-storage",
+        // Versión del formato guardado. Si cambia la forma de `slots`, subir el
+        // número y transformar el estado antiguo en `migrate` (sin migrate,
+        // zustand descartaría la hoja guardada).
+        version: 1,
+        // v0 (sin campo version) -> v1: mismo formato, no hay nada que convertir.
+        migrate: (persisted) => persisted as PersistedPaper,
         // Solo persistimos la cuadrícula. La galería se recarga 100% de IndexedDB al iniciar.
         // Las blob URLs mueren al cerrar el navegador: solo se guardan los ids
         // (imageId/originalImageId) y useAppInitialization recrea las URLs

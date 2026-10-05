@@ -5,6 +5,7 @@ import { usePaperStore, trackedUrls } from "../store/usePaperStore";
 import { loadImagesFromDB, cleanupOrphanedImages } from "../utils/storage";
 import { rehydrateSlots } from "../utils/rehydrate";
 import { loadFaceApiModels } from "../utils/faceDetection";
+import { BG_REMOVAL_MODEL } from "../config/constants";
 import type { PaperState, PhotoSlot, UploadedImage } from "../types";
 import { preload } from "@imgly/background-removal"; // precargar modelos para eliminar el background
 
@@ -23,7 +24,7 @@ export const useAppInitialization = () => {
     // Precargar silenciosamente el modelo más preciso para quitar fondos.
     // Así, cuando el usuario le dé clic, el modelo ya estará en la caché.
     preload({
-      model: "isnet_fp16",
+      model: BG_REMOVAL_MODEL,
       publicPath: `${window.location.origin}/`, // Volvemos a la raíz
     }).catch((err) => console.warn("Failed to preload bg-removal models", err));
 

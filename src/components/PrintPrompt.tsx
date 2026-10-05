@@ -14,7 +14,7 @@ export const PrintPrompt: React.FC<PrintPromptProps> = ({
   <div
     role="alertdialog"
     aria-label="Marcar fotos como impresas"
-    className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white pl-5 pr-3 py-3 rounded-xl shadow-2xl flex items-center gap-4 text-sm print:hidden"
+    className="fixed bottom-8 max-md:bottom-4 left-1/2 -translate-x-1/2 z-50 max-md:w-[calc(100vw-2rem)] max-md:flex-col max-md:items-stretch bg-slate-800 text-white pl-5 pr-3 py-3 rounded-xl shadow-2xl flex items-center gap-4 text-sm print:hidden"
   >
     <span>
       {count === 1
@@ -22,7 +22,7 @@ export const PrintPrompt: React.FC<PrintPromptProps> = ({
         : `Enviaste ${count} fotos a imprimir.`}{" "}
       ¿Marcarlas como impresas?
     </span>
-    <div className="flex gap-2">
+    <div className="flex gap-2 max-md:justify-end">
       <button
         onClick={onDismiss}
         className="px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer"

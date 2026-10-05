@@ -16,17 +16,33 @@ import { ProcessingOverlay } from "./components/ProcessingOverlay";
 import { DragDropOverlay } from "./components/DragDropOverlay";
 import { MarqueeOverlay } from "./components/MarqueeOverlay";
 import { PrintPrompt } from "./components/PrintPrompt";
+import { Toast } from "./components/Toast";
+import { usePaperScale } from "./hooks/usePaperScale";
+import { SlotContextMenu } from "./components/SlotContextMenu";
+import { DuplicateDialog } from "./components/DuplicateDialog";
+import { showToast } from "./store/useToastStore";
 import { usePrintPrompt } from "./hooks/usePrintPrompt";
 
 function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
   const [hoveredSlotId, setHoveredSlotId] = useState<number | null>(null);
+  // Menú de clic derecho y diálogo de duplicar: uno solo para toda la hoja
+  const [contextMenu, setContextMenu] = useState<{
+    slotId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [duplicateSlotId, setDuplicateSlotId] = useState<number | null>(null);
+  // Solo móvil: el panel lateral es un cajón
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const paperScale = usePaperScale();
   const paperSheetRef = useRef<HTMLElement>(null);
 
   const slots = usePaperStore((state) => state.slots);
   const occupySlot = usePaperStore((state) => state.occupySlot);
   const selectedSlotIds = usePaperStore((state) => state.selectedSlotIds);
+  const isProcessing = usePaperStore((state) => state.isProcessing);
 
   // Custom Hooks para modularizar la lógica
   useAppInitialization();
@@ -35,7 +51,6 @@ function App() {
     useMarqueeSelection();
   const {
     isDragging,
-    isProcessing,
     handleDragEnter,
     handleDragLeave,
     handleGlobalDrop,
@@ -54,6 +69,7 @@ function App() {
         requestPrompt(); // el PDF ya se generó: ofrece marcar las fotos como impresas
       } catch (error) {
         console.error("Failed to export PDF:", error);
+        showToast("No se pudo exportar el PDF. Inténtalo de nuevo.", "error");
       } finally {
         setIsExporting(false);
       }
@@ -112,6 +128,13 @@ function App() {
     if (image) state.placeImageInSlot(image, slotId);
   }, []);
 
+  const handleSlotContextMenu = useCallback(
+    (slotId: number, x: number, y: number) => setContextMenu({ slotId, x, y }),
+    [],
+  );
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
   const handleSlotMove = useCallback((fromId: number, toId: number) => {
     usePaperStore.getState().moveSlot(fromId, toId);
   }, []);
@@ -155,17 +178,34 @@ function App() {
           ) : null;
         })()}
 
-      <Header onExportPdf={handleExportPdf} isExporting={isExporting} />
+      <Header
+        onExportPdf={handleExportPdf}
+        isExporting={isExporting}
+        onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        {isSidebarOpen && (
+          <div
+            className="md:hidden fixed inset-x-0 top-16 bottom-0 z-30 bg-slate-900/40 print:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        <Sidebar
+          isMobileOpen={isSidebarOpen}
+          onCloseMobile={() => setIsSidebarOpen(false)}
+        />
 
         <main
-          className="flex-1 overflow-auto print:overflow-hidden main-canvas-area flex items-center justify-center p-12 print:p-0 bg-slate-200 print:bg-transparent relative select-none"
+          className="flex-1 overflow-auto print:overflow-hidden main-canvas-area flex items-center justify-center p-12 max-md:p-4 print:p-0 bg-slate-200 print:bg-transparent relative select-none"
           data-purpose="canvas-viewport"
           onMouseDown={handleMainMouseDown}
         >
-          <PaperSheet ref={paperSheetRef} isExporting={isExporting}>
+          <PaperSheet
+            ref={paperSheetRef}
+            isExporting={isExporting}
+            scale={paperScale}
+          >
             {slots.map((slot) => (
               <PhotoSlot
                 key={slot.id}
@@ -173,16 +213,12 @@ function App() {
                 imageSrc={slot.imageData}
                 isPrinted={slot.isPrinted}
                 isExporting={isExporting}
+                isOccupied={slot.isOccupied}
                 isSelected={selectedSlotIds.includes(slot.id)}
-                selectionCount={
-                  selectedSlotIds.includes(slot.id) ? selectedSlotIds.length : 0
-                }
                 onSelect={handleSlotSelect}
-                onEdit={handleSlotEdit}
                 onMouseEnter={handleSlotEnter}
                 onMouseLeave={handleSlotLeave}
-                onDuplicate={handleSlotDuplicate}
-                onTogglePrinted={handleSlotTogglePrinted}
+                onContextMenu={handleSlotContextMenu}
                 onClear={handleSlotClear}
                 onDropGalleryImage={handleSlotDropImage}
                 onMoveImage={handleSlotMove}
@@ -192,6 +228,36 @@ function App() {
         </main>
       </div>
 
+      <Toast />
+      {contextMenu &&
+        !isExporting &&
+        (() => {
+          const slot = slots.find((s) => s.id === contextMenu.slotId);
+          if (!slot) return null;
+          const { slotId } = contextMenu;
+          return (
+            <SlotContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              hasImage={!!slot.imageData}
+              isPrinted={!!slot.isPrinted}
+              selectionCount={
+                selectedSlotIds.includes(slotId) ? selectedSlotIds.length : 0
+              }
+              onEdit={() => handleSlotEdit(slotId)}
+              onTogglePrinted={() => handleSlotTogglePrinted(slotId)}
+              onDuplicate={() => setDuplicateSlotId(slotId)}
+              onClear={() => handleSlotClear(slotId)}
+              onClose={closeContextMenu}
+            />
+          );
+        })()}
+      {duplicateSlotId !== null && !isExporting && (
+        <DuplicateDialog
+          onConfirm={(count) => handleSlotDuplicate(duplicateSlotId, count)}
+          onClose={() => setDuplicateSlotId(null)}
+        />
+      )}
       {pendingCount > 0 && (
         <PrintPrompt
           count={pendingCount}

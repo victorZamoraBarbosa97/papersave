@@ -1,29 +1,33 @@
 import React from "react";
 import { usePaperStore } from "../store/usePaperStore";
 import { CropModal } from "./CropModal";
+import { Modal } from "./Modal";
 import { GALLERY_DRAG_MIME } from "../config/constants";
 import { useSidebarUpload } from "../hooks/useSidebarUpload";
 import { useSidebarActions } from "../hooks/useSidebarActions";
+import { Icon, Spinner } from "./Icon";
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  // Solo móvil: el panel es un cajón que se abre desde la cabecera
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const uploadedImages = usePaperStore((state) => state.uploadedImages);
   const slots = usePaperStore((state) => state.slots);
 
-  const {
-    isDragging,
-    isProcessing,
-    fileInputRef,
-    handleUploadClick,
-    handleFileChange,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop,
-  } = useSidebarUpload();
+  const isProcessing = usePaperStore((state) => state.isProcessing);
+
+  const { fileInputRef, handleUploadClick, handleFileChange } =
+    useSidebarUpload();
 
   const {
     editingImageId,
     setEditingImageId,
-    toastMessage,
     confirmDialog,
     setConfirmDialog,
     handleDeleteImage,
@@ -42,7 +46,11 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className="w-72 bg-slate-50 border-r border-slate-200 flex flex-col p-6 space-y-8 overflow-y-auto print:hidden"
+      className={`w-72 bg-slate-50 border-r border-slate-200 flex flex-col p-6 space-y-8 overflow-y-auto print:hidden ${
+        isMobileOpen
+          ? "max-md:fixed max-md:top-16 max-md:bottom-0 max-md:left-0 max-md:z-40 max-md:max-w-[85vw] max-md:shadow-2xl"
+          : "max-md:hidden"
+      }`}
       data-purpose="sidebar"
     >
       {editingImageId &&
@@ -74,63 +82,23 @@ export const Sidebar: React.FC = () => {
         </h3>
         <div
           onClick={handleUploadClick}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`w-full py-4 px-4 bg-white border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-all group cursor-pointer ${
-            isDragging
-              ? "border-blue-500 bg-blue-50 scale-105 shadow-md"
-              : "border-blue-200 hover:border-blue-400"
-          } overflow-hidden`}
+          className="w-full py-4 px-4 bg-white border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-all group cursor-pointer border-blue-200 hover:border-blue-400 overflow-hidden"
         >
           {isProcessing ? (
             <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
-              <svg
-                className="animate-spin h-8 w-8 text-blue-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
+              <Spinner className="animate-spin h-8 w-8 text-blue-600" />
               <span className="text-sm font-semibold text-blue-600">
                 Procesando...
               </span>
             </div>
           ) : (
             <>
-              <svg
-                className={`h-8 w-8 transition-colors ${
-                  isDragging
-                    ? "text-blue-600"
-                    : "text-blue-400 group-hover:text-blue-600"
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 4v16m8-8H4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
+              <Icon
+                name="plus"
+                className="h-8 w-8 transition-colors text-blue-400 group-hover:text-blue-600"
+              />
               <span className="text-sm font-semibold text-blue-600">
-                {isDragging ? "Suelta tus fotos aquí" : "Subir Fotos"}
+                Subir Fotos
               </span>
             </>
           )}
@@ -151,20 +119,7 @@ export const Sidebar: React.FC = () => {
             className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-600 hover:bg-white hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-slate-100 cursor-pointer"
           >
             <span className="flex items-center gap-3">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
+              <Icon name="refresh" className="h-4 w-4" />
               Reiniciar Cuadrícula
             </span>
           </button>
@@ -173,20 +128,7 @@ export const Sidebar: React.FC = () => {
             className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-600 hover:bg-white hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-slate-100 cursor-pointer"
           >
             <span className="flex items-center gap-3">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
+              <Icon name="trash" className="h-4 w-4" />
               Limpiar Todo
             </span>
           </button>
@@ -216,7 +158,10 @@ export const Sidebar: React.FC = () => {
                   e.dataTransfer.setData(GALLERY_DRAG_MIME, img.id);
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                onDoubleClick={() => handlePlaceImage(img.id)}
+                onDoubleClick={() => {
+                  handlePlaceImage(img.id);
+                  onCloseMobile?.();
+                }}
                 title="Arrastra a la hoja o haz doble clic para colocarla"
                 className="relative group aspect-3/4 bg-white rounded-md border border-slate-200 overflow-hidden shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing"
               >
@@ -225,40 +170,14 @@ export const Sidebar: React.FC = () => {
                   className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-600 cursor-pointer"
                   title="Eliminar imagen"
                 >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <Icon name="close" className="w-3 h-3" />
                 </button>
                 <button
                   onClick={(e) => handleEditClick(e, img.id)}
                   className="absolute top-1 right-8 bg-blue-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-blue-600 cursor-pointer"
                   title="Recortar imagen"
                 >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
+                  <Icon name="pencil" className="w-3 h-3" />
                 </button>
                 <img
                   src={img.url}
@@ -298,38 +217,12 @@ export const Sidebar: React.FC = () => {
         </div>
       </section>
 
-      {/* Notificación (Toast) */}
-      {toastMessage && (
-        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-lg shadow-2xl text-sm flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <svg
-            className="w-5 h-5 text-green-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            ></path>
-          </svg>
-          <span className="font-medium tracking-wide">{toastMessage}</span>
-        </div>
-      )}
-
       {/* Modal de Confirmación */}
       {confirmDialog?.isOpen && (
-        <div
-          data-modal-open
-          className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"
-          onClick={() => setConfirmDialog(null)}
+        <Modal
+          onClose={() => setConfirmDialog(null)}
+          panelClassName="w-80 animate-in fade-in zoom-in-95 duration-200"
         >
-          <div
-            className="bg-white p-6 rounded-xl shadow-2xl w-80 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
             <h3 className="text-lg font-bold text-slate-800">
               Confirmar acción
             </h3>
@@ -350,8 +243,7 @@ export const Sidebar: React.FC = () => {
                 Confirmar
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </aside>
   );

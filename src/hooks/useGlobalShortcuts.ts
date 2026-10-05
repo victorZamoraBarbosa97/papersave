@@ -28,17 +28,26 @@ export const useGlobalShortcuts = (
       // aunque el foco ya no esté dentro del popup (ej. tras pulsar Tab).
       const isModalOpen = !!document.querySelector("[data-modal-open]");
 
-      if (isCtrlOrCmd && event.key === "p") {
+      // En minúscula para que Bloq Mayús no desactive los atajos.
+      const key = event.key.toLowerCase();
+      const canEditGrid = !isTyping && !isModalOpen;
+
+      if (isCtrlOrCmd && key === "p") {
         event.preventDefault();
         window.print();
       }
 
-      if (isCtrlOrCmd && event.key === "z" && !event.shiftKey && !isTyping && !isModalOpen) {
+      if (isCtrlOrCmd && key === "z" && !event.shiftKey && canEditGrid) {
         event.preventDefault();
         undoSafely();
       }
 
-      if (isCtrlOrCmd && event.key === "y" && !isTyping && !isModalOpen) {
+      // Rehacer: Ctrl+Y o Ctrl+Shift+Z
+      if (
+        isCtrlOrCmd &&
+        (key === "y" || (key === "z" && event.shiftKey)) &&
+        canEditGrid
+      ) {
         event.preventDefault();
         redoSafely();
       }

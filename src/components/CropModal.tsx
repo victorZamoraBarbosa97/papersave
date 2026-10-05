@@ -1,8 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { CropModalProps } from "../types";
 import { useCropModal } from "../hooks/useCropModal";
 import { CROP_WIDTH_PX, CROP_HEIGHT_PX } from "../config/constants";
+import { BG_REMOVAL_MODEL } from "../config/constants";
 import { removeBackground } from "@imgly/background-removal";
+import { showToast } from "../store/useToastStore";
+import { Icon, Spinner } from "./Icon";
+import { Modal } from "./Modal";
 
 export const CropModal: React.FC<CropModalProps> = ({
   imageUrl,
@@ -12,6 +16,15 @@ export const CropModal: React.FC<CropModalProps> = ({
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
+  // Blob URL del resultado de "Quitar fondo" (la crea este modal, así que él la libera)
+  const bgUrlRef = useRef<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (bgUrlRef.current) URL.revokeObjectURL(bgUrlRef.current);
+    },
+    [],
+  );
 
   const {
     scale,
@@ -29,41 +42,32 @@ export const CropModal: React.FC<CropModalProps> = ({
     handleSave,
   } = useCropModal(initialCrop, CROP_WIDTH_PX, CROP_HEIGHT_PX, onSave, onClose);
 
-  // Center image initially
-  useEffect(() => {
-    if (imageRef.current) {
-      // Logic to center if needed
-    }
-  }, [imageRef]);
-
   const handleRemoveBackground = async () => {
     try {
       setIsRemovingBg(true);
       // La IA procesa la imagen y devuelve un Blob PNG con transparencia
       const blob = await removeBackground(currentImageUrl, {
-        model: "isnet_fp16",
+        model: BG_REMOVAL_MODEL,
         publicPath: `${window.location.origin}/`, // Volvemos a la raíz
       });
       const newUrl = URL.createObjectURL(blob);
+      if (bgUrlRef.current) URL.revokeObjectURL(bgUrlRef.current);
+      bgUrlRef.current = newUrl;
       setCurrentImageUrl(newUrl);
     } catch (error) {
       console.error("Error quitando el fondo:", error);
-      alert("Ocurrió un error al quitar el fondo. Inténtalo de nuevo.");
+      showToast("No se pudo quitar el fondo. Inténtalo de nuevo.", "error");
     } finally {
       setIsRemovingBg(false);
     }
   };
 
   return (
-    <div
-      data-modal-open
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      backdropClassName="z-50 bg-black/70"
+      panelClassName="w-100"
     >
-      <div
-        className="bg-white p-6 rounded-xl shadow-2xl w-100 flex flex-col gap-4"
-        onClick={(e) => e.stopPropagation()}
-      >
         <h3 className="text-lg font-bold text-slate-800">Ajustar Recorte</h3>
 
         <div
@@ -163,44 +167,12 @@ export const CropModal: React.FC<CropModalProps> = ({
           >
             {isRemovingBg ? (
               <>
-                <svg
-                  className="animate-spin w-4 h-4 text-slate-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
+                <Spinner className="animate-spin w-4 h-4 text-slate-400" />
                 Procesando IA...
               </>
             ) : (
               <>
-                <svg
-                  className="w-4 h-4 group-hover:animate-pulse"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                  ></path>
-                </svg>
+                <Icon name="sparkles" className="w-4 h-4 group-hover:animate-pulse" />
                 Quitar Fondo
               </>
             )}
@@ -221,7 +193,6 @@ export const CropModal: React.FC<CropModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

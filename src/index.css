@@ -60,3 +60,18 @@
     display: block;
   }
 }
+
+/* Móvil: la hoja (612 px fijos) se reduce con `zoom` para caber en pantalla.
+   Solo en pantalla y bajo 768 px: no afecta a escritorio ni a la impresión.
+   Al exportar a PDF vuelve a su tamaño real para que el PDF no salga encogido. */
+@media screen and (max-width: 767px) {
+  .paper-scale {
+    zoom: var(--paper-scale, 1);
+    /* Sin esto, al volver a zoom 1 (exportar) la hoja se encogería para caber
+       en el contenedor estrecho y el PDF saldría recortado. */
+    flex-shrink: 0;
+  }
+  .paper-scale[data-exporting] {
+    zoom: 1;
+  }
+}

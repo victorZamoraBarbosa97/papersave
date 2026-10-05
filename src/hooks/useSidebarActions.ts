@@ -5,12 +5,12 @@ y el modal de confirmación con sus atajos de teclado.
 
 import { useState, useEffect } from "react";
 import { usePaperStore } from "../store/usePaperStore";
+import { showToast } from "../store/useToastStore";
 import type { CropData } from "../types";
 import { saveImageToDB, clearAllImagesFromDB } from "../utils/storage";
 
 export const useSidebarActions = () => {
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     message: string;
@@ -40,11 +40,6 @@ export const useSidebarActions = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [confirmDialog]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   // La galería solo quita miniaturas: NUNCA borra blobs de IndexedDB, porque
   // la misma imagen puede estar en un slot de la hoja (o en el historial de
@@ -140,7 +135,6 @@ export const useSidebarActions = () => {
   return {
     editingImageId,
     setEditingImageId,
-    toastMessage,
     confirmDialog,
     setConfirmDialog,
     handleDeleteImage,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { usePaperStore } from "../store/usePaperStore";
 import type { HeaderProps } from "../types";
 import { undoSafely, redoSafely } from "../utils/history";
+import { Icon, Spinner } from "./Icon";
 
 const SaveStatus: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
@@ -39,147 +40,75 @@ const SaveStatus: React.FC = () => {
 };
 
 export const Header = React.memo<HeaderProps>(
-  ({ onExportPdf, isExporting }) => {
+  ({ onExportPdf, isExporting, onToggleSidebar }) => {
     return (
       <header
-        className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10 print:hidden"
+        className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 max-md:px-3 shrink-0 z-10 print:hidden"
         data-purpose="main-header"
       >
         <div className="flex items-center gap-2">
+          {/* Solo en móvil: abre el panel lateral */}
+          <button
+            onClick={onToggleSidebar}
+            className="md:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+            aria-label="Abrir o cerrar el panel de fotos"
+          >
+            <Icon name="menu" className="w-6 h-6" />
+          </button>
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg
-              className="h-5 w-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
+            <Icon name="document" className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">
+          <h1 className="text-xl font-bold text-slate-800 tracking-tight max-[380px]:hidden">
             PaperSave
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 border-r border-slate-200 pr-4 mr-2">
+        <div className="flex items-center gap-4 max-md:gap-2">
+          <div className="flex items-center gap-1 border-r border-slate-200 pr-4 mr-2 max-md:border-r-0 max-md:pr-0 max-md:mr-0">
             <button
               onClick={() => undoSafely()}
               className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100 cursor-pointer active:scale-95"
               title="Deshacer (Ctrl+Z)"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-                ></path>
-              </svg>
+              <Icon name="undo" className="w-5 h-5" />
             </button>
             <button
               onClick={() => redoSafely()}
               className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100 cursor-pointer active:scale-95"
               title="Rehacer (Ctrl+Y)"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
-                ></path>
-              </svg>
+              <Icon name="redo" className="w-5 h-5" />
             </button>
           </div>
-          <SaveStatus />
+          <span className="max-md:hidden">
+            <SaveStatus />
+          </span>
           <button
             onClick={onExportPdf}
             disabled={isExporting}
-            className={`px-4 py-2 bg-slate-100 text-slate-700 rounded-md text-sm font-semibold hover:bg-slate-200 transition-colors cursor-pointer flex items-center gap-2 ${
+            aria-label="Exportar PDF"
+            className={`px-4 py-2 max-md:px-2.5 bg-slate-100 text-slate-700 rounded-md text-sm font-semibold hover:bg-slate-200 transition-colors cursor-pointer flex items-center gap-2 ${
               isExporting ? "opacity-75 cursor-wait" : ""
             }`}
           >
             {isExporting ? (
               <>
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-700"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Generando...
+                <Spinner className="animate-spin -ml-1 mr-2 max-md:mr-0 h-4 w-4 text-slate-700" />
+                <span className="max-md:hidden">Generando...</span>
               </>
             ) : (
               <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  ></path>
-                </svg>
-                Exportar PDF
+                <Icon name="document-download" className="w-4 h-4" />
+                <span className="max-md:hidden">Exportar PDF</span>
               </>
             )}
           </button>
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 shadow-sm shadow-blue-200 transition-colors cursor-pointer flex items-center gap-2"
+            aria-label="Imprimir"
+            className="px-4 py-2 max-md:px-2.5 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 shadow-sm shadow-blue-200 transition-colors cursor-pointer flex items-center gap-2"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-              ></path>
-            </svg>
-            Imprimir
+            <Icon name="print" className="w-4 h-4" />
+            <span className="max-md:hidden">Imprimir</span>
           </button>
         </div>
       </header>

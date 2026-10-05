@@ -1,63 +1,21 @@
-/* Se encargará de la gestión de archivos (Drag & Drop local y el input de archivos), 
-además de centralizar y evitar la duplicación del código que procesa las imágenes con IA.
+/* Botón "Subir Fotos" del panel lateral: abre el selector de archivos y envía lo
+elegido al procesador. Soltar archivos sobre la ventana lo maneja
+useGlobalDragAndDrop; ambos comparten processAndQueueFiles.
 */
-import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import { processAndQueueFiles } from "../services/imageProcessor";
-import { isInternalDrag } from "../config/constants";
 
 export const useSidebarUpload = () => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const processFiles = async (files: File[]) => {
-    if (files.length === 0) return;
-    setIsProcessing(true);
-    try {
-      await processAndQueueFiles(files);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    await processFiles(files);
-    if (e.target) e.target.value = "";
+    // Se limpia el input para poder volver a elegir los mismos archivos.
+    e.target.value = "";
+    await processAndQueueFiles(files);
   };
 
-  const handleDragOver = (e: DragEvent) => {
-    // Los arrastres internos no se pueden soltar aquí (no son una subida).
-    if (isInternalDrag(e.dataTransfer.types)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    if (isInternalDrag(e.dataTransfer.types)) return;
-    await processFiles(Array.from(e.dataTransfer.files));
-  };
-
-  return {
-    isDragging,
-    isProcessing,
-    fileInputRef,
-    handleUploadClick,
-    handleFileChange,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop,
-  };
+  return { fileInputRef, handleUploadClick, handleFileChange };
 };

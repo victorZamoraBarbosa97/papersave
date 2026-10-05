@@ -1,12 +1,16 @@
 import { forwardRef } from "react";
+import type React from "react";
 import type { PaperSheetProps } from "../types";
+import { PAPER_COLS } from "../config/constants";
 
 export const PaperSheet = forwardRef<HTMLElement, PaperSheetProps>(
-  ({ children, isExporting }, ref) => {
+  ({ children, isExporting, scale = 1 }, ref) => {
     return (
       <article
         ref={ref}
-        className="letter-paper"
+        className="letter-paper paper-scale"
+        data-exporting={isExporting || undefined}
+        style={{ "--paper-scale": scale } as React.CSSProperties}
         data-purpose="letter-paper-sheet"
       >
         {/* Safety Margin Overlay */}
@@ -18,7 +22,8 @@ export const PaperSheet = forwardRef<HTMLElement, PaperSheetProps>(
 
         {/* Grid Container */}
         <div
-          className="p-4 grid grid-cols-6 gap-1 pr-35.5"
+          className="p-4 grid gap-1 pr-35.5"
+          style={{ gridTemplateColumns: `repeat(${PAPER_COLS}, minmax(0, 1fr))` }}
           data-purpose="grid-layout"
         >
           {children}
