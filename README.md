@@ -4,7 +4,13 @@
 
 🔗 **¡Pruébalo en vivo! [PaperSave Live Preview](https://papersave-53ca5.web.app/)**
 
-<!-- CAPTURAS: agregar aquí las imágenes de la app (ej. ![PaperSave](docs/captura-hoja.png)) -->
+<p align="center">
+  <img src="docs/demo.gif" alt="Demostración de PaperSave: subir fotos, recortarlas, colocarlas en la hoja y marcarlas como impresas" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/captura-hoja.png" alt="Hoja Carta de PaperSave con fotos tamaño infantil, espacios ya impresos y el panel de la galería" width="900">
+</p>
 
 PaperSave es una aplicación web progresiva (PWA) diseñada para la edición y preparación de fotografías de documentos. Su principal característica es que **todo el procesamiento de Inteligencia Artificial ocurre localmente en el dispositivo del usuario**, garantizando cero consumo de datos de red tras la primera carga, velocidad ultrarrápida y privacidad absoluta.
 
